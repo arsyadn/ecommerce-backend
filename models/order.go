@@ -2,6 +2,12 @@ package models
 
 import "time"
 
+type OrderPayload struct {
+		ItemID uint `json:"item_id"`
+		Quantity int `json:"quantity"`
+		PriceAtOrder float64 `json:"price_at_order"`
+}
+
 type Order struct {
 	ID 	  uint           `gorm:"primaryKey" json:"id"`
 	UserID   uint           `json:"user_id"`
@@ -16,6 +22,6 @@ type OrderDetail struct {
 	ItemID      uint      `json:"item_id"`
 	Quantity    int       `json:"quantity"`
 	Price       float64   `json:"price"`
-	PriceAtOrder float64  `json:"price_at_order"`
+	PriceAtOrder float64   `json:"price_at_order"`
 	CreatedAt   time.Time `json:"created_at"`
 }

@@ -18,6 +18,15 @@ func NewOrderService(db *gorm.DB) *OrderService {
 	}
 }
 
+func (os *OrderService) GetUserRole(userID uint) (string, error) {
+	var role string
+	query := `SELECT role FROM users WHERE id = ?`
+	if err := os.DB.Raw(query, userID).Scan(&role).Error; err != nil {
+		return "", err
+	}
+	return role, nil
+}
+
 func (os *OrderService) CreateOrder(order *models.Order) error {
 	// Set waktu order
 	order.CreatedAt = time.Now()
@@ -28,18 +37,17 @@ func (os *OrderService) CreateOrder(order *models.Order) error {
 
 	return os.DB.Transaction(func(tx *gorm.DB) error {
 		
-		var id uint
 		result := tx.Exec("INSERT INTO orders (created_at, updated_at, status, user_id) VALUES (?, ?, ?, ?)",
 			order.CreatedAt, order.UpdatedAt, order.Status, order.UserID)
 		if result.Error != nil {
 			return result.Error
 		}
-		id = uint(result.RowsAffected)
 		
-		order.ID = id
+		if err := tx.Raw("SELECT LAST_INSERT_ID()").Scan(&order.ID).Error; err != nil {
+			return err
+		}
 
 		for i := range order.Details {
-			var price float64
 			var count int64
 			if err := tx.Raw("SELECT COUNT(*) FROM items WHERE id = ? AND id IN (SELECT id FROM items WHERE id = ?)", 
 				order.Details[i].ItemID, order.Details[i].ItemID).Scan(&count).Error; err != nil {
@@ -58,23 +66,27 @@ func (os *OrderService) CreateOrder(order *models.Order) error {
 					order.Details[i].ItemID, order.Details[i].Quantity, stock)
 			}
 
-			if err := tx.Raw("SELECT i.price FROM items i JOIN orderdetails o ON o.item_id = i.id WHERE i.id = ?", 
+			var price float64
+			if err := tx.Raw("SELECT price FROM items WHERE id = ?", 
 				order.Details[i].ItemID).Scan(&price).Error; err != nil {
-				return err
+				return fmt.Errorf("failed to get price for item with ID %d: %v", order.Details[i].ItemID, err)
 			}
+			fmt.Println("Price at order for item", order.Details[i].ItemID, "is", price)
 			order.Details[i].Price = price
 		}
+		fmt.Println("Order details:", order.Details)
 		for i := range order.Details {
 			order.Details[i].OrderID = order.ID
 			order.Details[i].CreatedAt = time.Now()
-			order.Details[i].PriceAtOrder = order.Details[i].Price
+			fmt.Println("Inserting order detail for item", order.Details[i].ItemID, "with price at", order.Details[i].PriceAtOrder)
+
 
 			result := tx.Exec("INSERT INTO orderdetails (order_id, item_id, quantity, price, price_at_order, created_at) VALUES (?, ?, ?, ?, ?, ?)",
 				order.Details[i].OrderID, order.Details[i].ItemID, order.Details[i].Quantity, 
 				order.Details[i].Price, order.Details[i].PriceAtOrder, order.Details[i].CreatedAt)
 			
 			if result.Error != nil {
-				return result.Error
+				return fmt.Errorf("failed to insert order detail for item here %d: %v", order.Details[i].ItemID, result.Error)
 			}
 
 			if result.RowsAffected == 0 {

@@ -19,17 +19,27 @@ func NewOrderController(db *gorm.DB) *OrderController {
 }
 
 func (oc *OrderController) CreateOrder(c *gin.Context) {
-	var order models.Order
+	var order []models.OrderPayload
 	if err := c.ShouldBindJSON(&order); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid input"})
 		return
 	}
-	if len(order.Details) == 0 {
-		c.JSON(400, gin.H{"error": "Order must include details"})
+
+	userID := c.GetUint("user_id")
+	role, err := oc.OrderService.GetUserRole(userID)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to get user role"})
 		return
 	}
 
-	for _, detail := range order.Details {
+	if role != "user" {
+		c.JSON(403, gin.H{"error": "Only user can make order"})
+		return
+	}
+
+
+	for _, detail := range order {
 		if detail.Quantity <= 0 {
 			c.JSON(400, gin.H{"error": "Quantity must be greater than 0"})
 			return
@@ -44,9 +54,25 @@ func (oc *OrderController) CreateOrder(c *gin.Context) {
 		}
 	}
 
-	order.UserID = c.GetUint("user_id")
+	user := c.GetUint("user_id")
+	newOrder := models.Order{
+		UserID: user,
+		Status: "pending",
+	}
 
-	if err := oc.OrderService.CreateOrder(&order); err != nil {
+	// Convert payload to order details
+	var orderDetails []models.OrderDetail
+	for _, item := range order {
+		detail := models.OrderDetail{
+			ItemID:       item.ItemID,
+			Quantity:     item.Quantity,
+			PriceAtOrder: float64(item.PriceAtOrder),
+		}
+		orderDetails = append(orderDetails, detail)
+	}
+	newOrder.Details = orderDetails
+
+	if err := oc.OrderService.CreateOrder(&newOrder); err != nil {
 		c.JSON(500, gin.H{"error": "Failed to create order", "details": err.Error()})
 		return
 	}
