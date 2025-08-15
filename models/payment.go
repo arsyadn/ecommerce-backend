@@ -16,3 +16,8 @@ type Payment struct {
 	Evidence  []byte    `json:"evidence"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type UpdatePaymentStatusPayload struct {
+	PaymentID int    `json:"payment_id" binding:"required"`
+	Status    string `json:"status" binding:"required"`
+}

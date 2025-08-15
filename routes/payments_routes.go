@@ -16,5 +16,7 @@ func SetupPaymentRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	{
 		protected.POST("/payments", paymentController.UploadPayment)
 		protected.GET("/payments", paymentController.GetPayments)
+		protected.GET("/payments/:id", paymentController.GetPaymentByID)
+		protected.PUT("/payments", paymentController.AdminUpdatePayment)
 	}
 }

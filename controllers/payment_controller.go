@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"final-project/models"
 	"final-project/services"
 	"net/http"
 	"strconv"
@@ -80,7 +81,7 @@ func (pc *PaymentController) GetPayments(c *gin.Context) {
 
 	// Check if user is admin
 	if role != "admin" {
-		c.JSON(403, gin.H{"error": "Only admin can create items"})
+		c.JSON(403, gin.H{"error": "Only admin can see payments"})
 		return
 	}
 
@@ -90,4 +91,51 @@ func (pc *PaymentController) GetPayments(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, payments)
+}
+
+func (pc *PaymentController) GetPaymentByID(c *gin.Context) {
+    paymentID, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment ID"})
+        return
+    }
+
+    payment, err := pc.PaymentService.GetPaymentByID(c.Request.Context(), paymentID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, payment)
+}
+
+func (pc *PaymentController) AdminUpdatePayment(c *gin.Context) {
+    userID := c.GetUint("user_id")
+    role, err := pc.PaymentService.GetUserRole(userID)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Failed to get user role"})
+        return
+    }
+
+    if role != "admin" {
+        c.JSON(403, gin.H{"error": "Only admin can update payment"})
+        return
+    }
+    // Read JSON payload
+    var payload models.UpdatePaymentStatusPayload
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+        return
+    }
+
+    paymentID := payload.PaymentID
+    status := payload.Status
+
+    // Call service
+    if err := pc.PaymentService.AdminUpdatePayment(c.Request.Context(), paymentID, status, int(userID)); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Payment updated successfully"})
 }
