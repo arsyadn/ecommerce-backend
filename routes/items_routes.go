@@ -11,14 +11,18 @@ import (
 func SetupItemsRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	itemsController := controllers.NewItemController(db)
 
+	admin := router.Group("/items")
+	admin.Use(middleware.AuthMiddleware())
+	admin.Use(middleware.RoleAdminMiddleware())
+	
 	protected := router.Group("/items")
 	protected.Use(middleware.AuthMiddleware())
 
 	{
-		protected.POST("/create", itemsController.CreateItem)
+		admin.POST("", itemsController.CreateItem) //create item
 		protected.GET("", itemsController.GetAllItems)
 		protected.GET("/:id", itemsController.GetDetailItem)
-		protected.PUT("/:id", itemsController.UpdateItem)
-		protected.DELETE("/:id", itemsController.DeleteItem)
+		admin.PUT("/:id", itemsController.UpdateItem)
+		admin.DELETE("/:id", itemsController.DeleteItem)
 	}
 }

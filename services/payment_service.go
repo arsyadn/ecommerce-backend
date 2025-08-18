@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"final-project/models"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"gorm.io/gorm"
@@ -61,12 +64,27 @@ func (ps *PaymentService) UploadPayment(ctx context.Context, orderID uint, amoun
     }
 
     // Create payment record
+    // Create evidence folder if it doesn't exist
+    evidencePath := "evidence"
+    if err := os.MkdirAll(evidencePath, 0755); err != nil {
+        return err
+    }
+
+    // Generate unique filename using timestamp and orderID
+    filename := fmt.Sprintf("%d_%d_evidence.jpg", time.Now().Unix(), orderID)
+    fullPath := filepath.Join(evidencePath, filename)
+
+    // Save file to disk
+    if err := os.WriteFile(fullPath, evidenceBytes, 0644); err != nil {
+        return err
+    }
+
     payment := models.Payment{
-        OrderID:   orderID,
-        Status:    "pending",
-        CreatedAt: time.Now(),
-        Amount:    amount,
-        Evidence:  evidenceBytes,
+        OrderID:      orderID,
+        Status:       "pending",
+        CreatedAt:    time.Now(),
+        Amount:       amount,
+        EvidencePath: fullPath,
     }
 
     tx := ps.DB.WithContext(ctx).Begin()
@@ -74,9 +92,9 @@ func (ps *PaymentService) UploadPayment(ctx context.Context, orderID uint, amoun
         return tx.Error
     }
     if err := tx.Exec(`
-        INSERT INTO payments (order_id, status, created_at, amount, evidence, payment_date) 
+        INSERT INTO payments (order_id, status, created_at, amount, evidence_path, payment_date) 
         VALUES (?, ?, ?, ?, ?, ?)`,
-        payment.OrderID, payment.Status, payment.CreatedAt, payment.Amount, payment.Evidence, payment.CreatedAt).Error; err != nil {
+        payment.OrderID, payment.Status, payment.CreatedAt, payment.Amount, payment.EvidencePath, payment.CreatedAt).Error; err != nil {
         tx.Rollback()
         return err
     }
@@ -90,16 +108,16 @@ func (ps *PaymentService) UploadPayment(ctx context.Context, orderID uint, amoun
 }
 
 
-func (ps *PaymentService) GetPayments(ctx context.Context) ([]models.Payment, error) {
-	var payments []models.Payment
+func (ps *PaymentService) GetPayments(ctx context.Context) ([]models.PaymentResponse, error) {
+	var payments []models.PaymentResponse
 	if err := ps.DB.WithContext(ctx).Raw("SELECT * FROM payments").Scan(&payments).Error; err != nil {
 		return nil, err
 	}
 	return payments, nil
 }
 
-func (ps *PaymentService) GetPaymentByID(ctx context.Context, paymentID int) (*models.Payment, error) {
-	var payment models.Payment
+func (ps *PaymentService) GetPaymentByID(ctx context.Context, paymentID int) (*models.PaymentResponse, error) {
+	var payment models.PaymentResponse
 	if err := ps.DB.WithContext(ctx).Raw("SELECT * FROM payments WHERE id = ?", paymentID).Scan(&payment).Error; err != nil {
 		return nil, err
 	}
@@ -169,6 +187,13 @@ func (ps *PaymentService) AdminUpdatePayment (ctx context.Context, paymentID int
             SET stock = stock - ? 
             WHERE id = ?`, od.Quantity, od.ItemID).Error; err != nil {
             return err
+            }
+
+            if err := ps.DB.WithContext(ctx).Exec(`
+                INSERT INTO stockmovement (item_id, reference_order_id, quantity, type, created_at, created_by)
+                VALUES (?, ?, ?, 'out', ?, ?)`,
+                od.ItemID, payment.OrderID, od.Quantity, time.Now(), userID).Error; err != nil {
+                return err
             }
         }
     }

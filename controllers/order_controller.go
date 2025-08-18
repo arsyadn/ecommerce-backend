@@ -60,7 +60,7 @@ func (oc *OrderController) CreateOrder(c *gin.Context) {
 		Status: "pending",
 	}
 
-	// Convert payload to order details
+	// Convert payload 
 	var orderDetails []models.OrderDetail
 	for _, item := range order {
 		detail := models.OrderDetail{

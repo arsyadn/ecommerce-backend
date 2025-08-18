@@ -10,10 +10,11 @@ import (
 func SetupOrderRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	orderController := controllers.NewOrderController(db)
 
-	protected := router.Group("/orders")
-	protected.Use(middleware.AuthMiddleware())
+	user := router.Group("/orders")
+	user.Use(middleware.AuthMiddleware())
+	user.Use(middleware.RoleUserMiddleware())
 
 	{
-		protected.POST("/create", orderController.CreateOrder)
+		user.POST("", orderController.CreateOrder)
 	}
 }

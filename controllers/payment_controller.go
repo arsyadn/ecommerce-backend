@@ -22,19 +22,7 @@ func NewPaymentController(db *gorm.DB) *PaymentController {
 
 
 func (pc *PaymentController) UploadPayment(c *gin.Context) {
-    userID := c.GetUint("user_id")
-    role, err := pc.PaymentService.GetUserRole(userID)
-    if err != nil {
-        c.JSON(500, gin.H{"error": "Failed to get user role"})
-        return
-    }
-
-    if role != "user" {
-        c.JSON(403, gin.H{"error": "Only user can make payment"})
-        return
-    }
-
-    // Read form-data values
+       // Read form-data values
     orderID, err := strconv.Atoi(c.PostForm("order_id"))
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order_id"})
@@ -55,7 +43,6 @@ func (pc *PaymentController) UploadPayment(c *gin.Context) {
     }
     defer file.Close()
 
-    // Call service
     if err := pc.PaymentService.UploadPayment(
         c.Request.Context(),
         uint(orderID),
@@ -69,22 +56,7 @@ func (pc *PaymentController) UploadPayment(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"message": "Payment uploaded successfully"})
 }
 
-// GetPayments returns all payments
 func (pc *PaymentController) GetPayments(c *gin.Context) {
-	userID := c.GetUint("user_id")
-	role, err := pc.PaymentService.GetUserRole(userID)
-
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to get user role"})
-		return
-	}
-
-	// Check if user is admin
-	if role != "admin" {
-		c.JSON(403, gin.H{"error": "Only admin can see payments"})
-		return
-	}
-
 	payments, err := pc.PaymentService.GetPayments(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -111,17 +83,7 @@ func (pc *PaymentController) GetPaymentByID(c *gin.Context) {
 
 func (pc *PaymentController) AdminUpdatePayment(c *gin.Context) {
     userID := c.GetUint("user_id")
-    role, err := pc.PaymentService.GetUserRole(userID)
-    if err != nil {
-        c.JSON(500, gin.H{"error": "Failed to get user role"})
-        return
-    }
 
-    if role != "admin" {
-        c.JSON(403, gin.H{"error": "Only admin can update payment"})
-        return
-    }
-    // Read JSON payload
     var payload models.UpdatePaymentStatusPayload
     if err := c.ShouldBindJSON(&payload); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
@@ -131,7 +93,6 @@ func (pc *PaymentController) AdminUpdatePayment(c *gin.Context) {
     paymentID := payload.PaymentID
     status := payload.Status
 
-    // Call service
     if err := pc.PaymentService.AdminUpdatePayment(c.Request.Context(), paymentID, status, int(userID)); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return

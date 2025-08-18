@@ -12,5 +12,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		SetupItemsRoutes(api, db)
 		SetupOrderRoutes(api, db)
 		SetupPaymentRoutes(api, db)
+		SetupReportRoutes(api, db)
 	}
 }

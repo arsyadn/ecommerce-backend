@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"final-project/models"
+	"final-project/repositories"
 	"final-project/services"
 	"net/http"
 
@@ -14,8 +15,13 @@ type AuthController struct {
 }
 
 func NewUserController(db *gorm.DB) *AuthController {
+	// build repository first
+	userRepo := repositories.NewUserRepository(db)
+	// then inject repo into service
+	userService := services.NewUserService(userRepo)
+
 	return &AuthController{
-		UserService: services.NewUserService(db),
+		UserService: userService,
 	}
 }
 
@@ -48,7 +54,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	token, userID, err := ac.UserService.Login(&loginRequest)
+	token, err := ac.UserService.Login(&loginRequest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -56,6 +62,5 @@ func (ac *AuthController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token": token,
-		"user_id": userID,
 	})
 }

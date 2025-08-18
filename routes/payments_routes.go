@@ -11,12 +11,18 @@ import (
 func SetupPaymentRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	paymentController := controllers.NewPaymentController(db)
 
-	protected := router.Group("/")
-	protected.Use(middleware.AuthMiddleware())
+	user := router.Group("/")
+	user.Use(middleware.AuthMiddleware())
+	user.Use(middleware.RoleUserMiddleware())
+
+	admin := router.Group("/")
+	admin.Use(middleware.AuthMiddleware())
+	admin.Use(middleware.RoleAdminMiddleware())
+	
 	{
-		protected.POST("/payments", paymentController.UploadPayment)
-		protected.GET("/payments", paymentController.GetPayments)
-		protected.GET("/payments/:id", paymentController.GetPaymentByID)
-		protected.PUT("/payments", paymentController.AdminUpdatePayment)
+		user.POST("/payments", paymentController.UploadPayment)
+		admin.GET("/payments", paymentController.GetPayments)
+		admin.GET("/payments/:id", paymentController.GetPaymentByID)
+		admin.PUT("/payments", paymentController.AdminUpdatePayment)
 	}
 }

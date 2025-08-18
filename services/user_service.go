@@ -3,40 +3,40 @@ package services
 import (
 	"errors"
 	"final-project/models"
+	"final-project/repositories"
 	"final-project/utils"
 	"fmt"
-
-	"gorm.io/gorm"
 )
 
+
 type UserService struct {
-	DB *gorm.DB
+	repo *repositories.UserRepository
 }
 
-func NewUserService(db *gorm.DB) *UserService {
-	return &UserService{
-		DB: db,
-	}
+func NewUserService(repo *repositories.UserRepository) *UserService {
+	return &UserService{repo: repo}
 }
 
 func (as *UserService) Register(user *models.User) (string, uint, error) {
+
+	// check if user already exists
+	existingUser, err := as.repo.FindByEmail(user.Email)
+	if err == nil && existingUser.ID != 0 {
+		return "", 0, errors.New("email already registered")
+	}
+
 	// hash the password before di save
 	if err := user.HashPassword(user.Password); err != nil {
 		return "", 0, errors.New("failed to hashing password")
 	}
 
-	// create in db
-	query := `INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, 'user', NOW())`
-	result := as.DB.Exec(query, user.Name, user.Email, user.Password)
-	if result.Error != nil {
+	// Save user
+	if err := as.repo.Create(user); err != nil {
 		return "", 0, errors.New("failed to create user")
 	}
-	fmt.Println("Rows affected:", result.RowsAffected)
-	userId := uint(result.RowsAffected)
-	user.ID = userId
 
 	// generate token
-	token, err := utils.GenerateToken(user.ID)
+	token, err := utils.GenerateToken(user.ID, user.Role)
 	if err != nil {
 		return "", 0, errors.New("failed to generate token")
 	}
@@ -44,27 +44,23 @@ func (as *UserService) Register(user *models.User) (string, uint, error) {
 	return token, user.ID, nil
 }
 
-func (as *UserService) Login(loginRequest *models.LoginRequest) (string, uint, error) {
-	var user models.User
+func (as *UserService) Login(loginRequest *models.LoginRequest) (string, error) {
 
 	// checker user is exist
-	query := `SELECT * FROM users WHERE email = ? LIMIT 1`
-	if err := as.DB.Raw(query, loginRequest.Email).Scan(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", 0, errors.New("invalid email or password")
-		}
-		return "", 0, err
-	}
-
+	user, err := as.repo.FindByEmail(loginRequest.Email)
+	  if err != nil || user.ID == 0 {
+        return "", errors.New("invalid email or password")
+    }
 	// checker password
 	if err := user.CheckPassword(loginRequest.Password); err != nil {
-		return "", 0, errors.New("invalid email or password")
+		return "", errors.New("invalid email or password")
 	}
 
+	fmt.Println("Generating token for user service:", user.ID, "with role:", user.Role)
 	// generate token
-	token, err := utils.GenerateToken(user.ID)
+	token, err := utils.GenerateToken(user.ID, user.Role)
 	if err != nil {
-		return "", 0, errors.New("failed to generate token")
+		return "", errors.New("failed to generate token")
 	}
-	return token, user.ID, nil
+	return token, nil
 }

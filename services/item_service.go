@@ -26,18 +26,40 @@ func (is *ItemService) GetUserRole(userID uint) (string, error) {
 }
 
 func (is *ItemService) CreateItem(item *models.Item) error {
-	query := `INSERT INTO items (name, description, price, stock, users_id) 
-			  VALUES (?, ?, ?, ?, ?)`
-	if err := is.DB.Exec(query, 
+	// Start transaction
+	tx := is.DB.Begin()
+
+	// Insert into items table
+	itemQuery := `INSERT INTO items (name, description, price, stock, users_id) 
+				  VALUES (?, ?, ?, ?, ?)`
+	result := tx.Exec(itemQuery, 
 		item.Name, 
 		item.Description, 
 		item.Price, 
 		item.Stock, 
-		item.UserID,
-		).Error; err != nil {
+		item.UserID)
+	if result.Error != nil {
+		tx.Rollback()
+		return result.Error
+	}
+
+	// Get the last inserted item ID
+	var itemID uint
+	if err := tx.Raw("SELECT LAST_INSERT_ID()").Scan(&itemID).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
-	return nil
+
+	// Insert into stockmovement table
+	stockQuery := `INSERT INTO stockmovement (item_id, quantity, type, created_at, created_by) 
+				   VALUES (?, ?, 'in', CURRENT_TIMESTAMP, ?)`
+	if err := tx.Exec(stockQuery, itemID, item.Stock, item.UserID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit transaction
+	return tx.Commit().Error
 }
 
 func (is *ItemService) GetAllItems(page, limit int) ([]models.ItemResponse, error) {

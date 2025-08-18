@@ -21,20 +21,7 @@ func NewItemController(db *gorm.DB) *ItemController {
 
 
 func (ic *ItemController) CreateItem(c *gin.Context) {
-	// Get user_id and role from JWT token
 	userID := c.GetUint("user_id")
-	role, err := ic.ItemService.GetUserRole(userID)
-	
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to get user role"})
-		return
-	}
-
-	// Check if user is admin
-	if role != "admin" {
-		c.JSON(403, gin.H{"error": "Only admin can create items"})
-		return
-	}
 
 	var item models.Item
 	if err := c.ShouldBindJSON(&item); err != nil {
@@ -42,7 +29,6 @@ func (ic *ItemController) CreateItem(c *gin.Context) {
 		return
 	}
 
-	// Set the creator's user_id
 	item.UserID = userID
 
 	if err := ic.ItemService.CreateItem(&item); err != nil {
@@ -138,16 +124,6 @@ func (ic *ItemController) UpdateItem(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
-	role, err := ic.ItemService.GetUserRole(userID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to get user role"})
-		return
-	}
-
-	if role != "admin" {
-		c.JSON(403, gin.H{"error": "Only admin can update items"})
-		return
-	}
 
 	var item models.Item
 	if err := c.ShouldBindJSON(&item); err != nil {
