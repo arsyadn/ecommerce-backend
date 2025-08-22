@@ -24,4 +24,4 @@ jobs:
             git pull origin main
             docker build -t student1-app .
             docker rm -f student1 || true
-            docker run -d -p 8001:8000 --env-file /home/student/final-project/student1/.env --name student1 student1-app
+            docker run -d -p 8001:8080 --env-file /home/student/final-project/student1/.env --name student1 student1-app
