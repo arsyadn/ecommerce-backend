@@ -9,15 +9,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func InitializeApp() *gin.Engine {
-	err := godotenv.Load()
+	// err := godotenv.Load()
 
-	if err != nil {
-		panic("Error loading .env file")
-	}
+	// if err != nil {
+	// 	panic("Error loading .env file")
+	// }
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
