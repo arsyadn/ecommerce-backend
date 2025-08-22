@@ -1,0 +1,27 @@
+name: Arsyad Deploy Final Project to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/student/student1
+            git pull origin main
+            docker build -t student1-app .
+            docker rm -f student1 || true
+            docker run -d -p 8001:8000 --env-file /home/student/student1/.env --name student1 student1-app
