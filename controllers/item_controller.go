@@ -93,12 +93,15 @@ func (ic *ItemController) DeleteItem(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Invalid item ID"})
 		return
 	}
-
+	
 	if err := ic.ItemService.DeleteItem(id); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to delete item", "details": err.Error()})
-		return
-	}
-
+			if err.Error() == "already deleted" {
+				c.JSON(400, gin.H{"error": "Item already deleted"})
+				return
+			}
+			c.JSON(500, gin.H{"error": "Failed to delete item", "details": err.Error()})
+			return
+		}
 	c.JSON(200, gin.H{"message": "Item deleted successfully"})
 }
 

@@ -2,6 +2,8 @@ package services
 
 import (
 	"final-project/models"
+	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -64,7 +66,7 @@ func (is *ItemService) CreateItem(item *models.Item) error {
 
 func (is *ItemService) GetAllItems(page, limit int) ([]models.ItemResponse, error) {
 	var items []models.ItemResponse
-	query := `SELECT id, name, price, stock FROM items LIMIT ? OFFSET ?`
+	query := `SELECT id, name, price, stock FROM items WHERE deleted_at IS NULL LIMIT ? OFFSET ?`
 	if limit <= 0 {
 		limit = 10 // Default limit
 	}
@@ -80,7 +82,7 @@ func (is *ItemService) GetAllItems(page, limit int) ([]models.ItemResponse, erro
 
 func (is *ItemService) GetDetailItem(id int) (*models.ItemDetailReponse, error) {
 	var item models.ItemDetailReponse
-	query := `SELECT id, name, description, price, stock FROM items WHERE id = ?`
+	query := `SELECT id, name, description, price, stock FROM items WHERE id = ? AND deleted_at IS NULL`
 	if err := is.DB.Raw(query, id).Scan(&item).Error; err != nil {
 		return nil, err
 	}
@@ -88,15 +90,28 @@ func (is *ItemService) GetDetailItem(id int) (*models.ItemDetailReponse, error) 
 }
 
 func (is *ItemService) DeleteItem(id int) error {
-	query := `DELETE FROM items WHERE id = ?`
-	if err := is.DB.Exec(query, id).Error; err != nil {
+	// Check if item already deleted
+	var deletedAt *time.Time
+	checkQuery := `SELECT deleted_at FROM items WHERE id = ?`
+	if err := is.DB.Raw(checkQuery, id).Scan(&deletedAt).Error; err != nil {
 		return err
 	}
+
+	if deletedAt != nil {
+		return fmt.Errorf("already deleted")
+	}
+
+	// Soft delete the item
+	deleteQuery := `UPDATE items SET deleted_at = NOW() WHERE id = ?`
+	if err := is.DB.Exec(deleteQuery, id).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (is *ItemService) UpdateItem(item *models.Item) error {
-	query := `UPDATE items SET name = ?, description = ?, price = ?, stock = ? WHERE id = ?`
+	query := `UPDATE items SET name = ?, description = ?, price = ?, stock = ? WHERE id = ? AND deleted_at IS NULL`
 	if err := is.DB.Exec(query, item.Name, item.Description, item.Price, item.Stock, item.ID).Error; err != nil {
 		return err
 	}
