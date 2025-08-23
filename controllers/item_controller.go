@@ -94,18 +94,6 @@ func (ic *ItemController) DeleteItem(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id")
-	role, err := ic.ItemService.GetUserRole(userID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to get user role"})
-		return
-	}
-
-	if role != "admin" {
-		c.JSON(403, gin.H{"error": "Only admin can delete items"})
-		return
-	}
-
 	if err := ic.ItemService.DeleteItem(id); err != nil {
 		c.JSON(500, gin.H{"error": "Failed to delete item"})
 		return
