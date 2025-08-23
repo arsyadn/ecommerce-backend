@@ -122,9 +122,18 @@ func (is *ItemService) DeleteItem(id int) error {
 
 
 func (is *ItemService) UpdateItem(item *models.Item) error {
-	query := `UPDATE items SET name = ?, description = ?, price = ?, stock = ? WHERE id = ? AND deleted_at IS NULL`
-	if err := is.DB.Exec(query, item.Name, item.Description, item.Price, item.Stock, item.ID).Error; err != nil {
-		return err
+	query := `UPDATE items 
+	          SET name = ?, description = ?, price = ?, stock = ? 
+	          WHERE id = ? AND deleted_at IS NULL`
+
+	result := is.DB.Exec(query, item.Name, item.Description, item.Price, item.Stock, item.ID)
+	if result.Error != nil {
+		return result.Error
 	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("item not found or already deleted")
+	}
+
 	return nil
 }

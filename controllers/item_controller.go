@@ -126,7 +126,11 @@ func (ic *ItemController) UpdateItem(c *gin.Context) {
 	item.UserID = userID
 
 	if err := ic.ItemService.UpdateItem(&item); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to update item"})
+		if err.Error() == "item not found or already deleted" {
+			c.JSON(404, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(500, gin.H{"error": "Failed to update item", "details": err.Error()})
 		return
 	}
 
