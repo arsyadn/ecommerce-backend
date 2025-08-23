@@ -1,9 +1,9 @@
 package services
 
 import (
+	"database/sql"
 	"final-project/models"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -90,14 +90,24 @@ func (is *ItemService) GetDetailItem(id int) (*models.ItemDetailReponse, error) 
 }
 
 func (is *ItemService) DeleteItem(id int) error {
+	// Check if item exists
+	var count int64
+	existsQuery := `SELECT COUNT(*) FROM items WHERE id = ?`
+	if err := is.DB.Raw(existsQuery, id).Scan(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("item not found")
+	}
+
 	// Check if item already deleted
-	var deletedAt *time.Time
+	var deletedAt sql.NullTime
 	checkQuery := `SELECT deleted_at FROM items WHERE id = ?`
 	if err := is.DB.Raw(checkQuery, id).Scan(&deletedAt).Error; err != nil {
 		return err
 	}
 
-	if deletedAt != nil {
+	if deletedAt.Valid {
 		return fmt.Errorf("already deleted")
 	}
 
@@ -109,6 +119,7 @@ func (is *ItemService) DeleteItem(id int) error {
 
 	return nil
 }
+
 
 func (is *ItemService) UpdateItem(item *models.Item) error {
 	query := `UPDATE items SET name = ?, description = ?, price = ?, stock = ? WHERE id = ? AND deleted_at IS NULL`
