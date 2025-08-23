@@ -82,12 +82,22 @@ func (is *ItemService) GetAllItems(page, limit int) ([]models.ItemResponse, erro
 
 func (is *ItemService) GetDetailItem(id int) (*models.ItemDetailReponse, error) {
 	var item models.ItemDetailReponse
-	query := `SELECT id, name, description, price, stock FROM items WHERE id = ? AND deleted_at IS NULL`
-	if err := is.DB.Raw(query, id).Scan(&item).Error; err != nil {
-		return nil, err
+	query := `SELECT id, name, description, price, stock 
+	          FROM items 
+	          WHERE id = ? AND deleted_at IS NULL`
+
+	result := is.DB.Raw(query, id).Scan(&item)
+	if result.Error != nil {
+		return nil, result.Error
 	}
+
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("item not found or already deleted")
+	}
+
 	return &item, nil
 }
+
 
 func (is *ItemService) DeleteItem(id int) error {
 	// Check if item exists
